@@ -1,0 +1,33 @@
+{
+    # Global options block. Entirely optional, https is on by default
+    # Optional email key for lets encrypt
+    # email emanuele.gissi@gmail.com
+    # Optional staging lets encrypt for testing. Comment out for production.
+    # acme_ca https://acme-staging-v02.api.letsencrypt.org/directory
+}
+
+# run mkcert.sh before starting with local hosting
+(ssl_certs) {
+  tls /etc/certs/cert.pem /etc/certs/key.pem
+}
+
+apps.ge.dipvvf.it {
+  import ssl_certs
+  reverse_proxy whoami:8000
+}
+
+grist.ge.dipvvf.it {
+  import ssl_certs
+  reverse_proxy /whoami whoami:8000
+  reverse_proxy grist:8484
+}
+
+dex.ge.dipvvf.it {
+  import ssl_certs
+  reverse_proxy dex:5556
+}
+
+n8n.ge.dipvvf.it {
+  import ssl_certs
+  reverse_proxy n8n:5678
+}

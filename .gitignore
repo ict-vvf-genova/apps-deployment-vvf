@@ -1,0 +1,5 @@
+.env
+/data/
+
+/config/certs/*
+!/config/certs/.gitkeep

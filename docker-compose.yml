@@ -1,0 +1,206 @@
+name: 'apps'
+version: "3.7"
+
+x-caddy-image: &caddy-image "docker.io/caddy:latest"
+x-whoami-image: &whoami-image "docker.io/traefik/whoami"
+x-dex-image: &dex-image "ghcr.io/ict-vvf-genova/dex-smtp:master"
+x-grist-image: &grist-image "docker.io/gristlabs/grist:1.1.10"
+x-redis-image: &redis-image "docker.io/redis:7-bookworm"
+x-minio-image: &minio-image "docker.io/minio/minio:RELEASE.2024-01-18T22-51-28Z"
+x-minio-mc-image: &minio-mc-image "docker.io/minio/mc:RELEASE.2024-01-18T07-03-39Z"
+
+services:
+
+  caddy:
+    image: *caddy-image
+    restart: "always"
+    container_name: "apps-caddy"
+    ports:
+      - "80:80/tcp" # HTTP.
+      - "443:443/tcp" # HTTPS.
+      - "443:443/udp" # HTTPS (QUIC).
+    volumes:
+      - "./config/caddy/Caddyfile:/etc/caddy/Caddyfile:ro"
+      - "./config/certs/:/etc/certs/:ro"
+      - "./data/caddy/data/:/data/:Z"
+      - "./data/caddy/config/:/config/:Z"
+    networks:
+      - "public"
+      - "private"
+
+  whoami:
+    image: *whoami-image
+    container_name: "apps-whoami"
+    command:
+      - --port=8000
+    networks:
+      - "private"
+
+  dex:
+    image: *dex-image
+    restart: "always"
+    container_name: "apps-dex"
+    networks:
+      - "public"
+      - "private"
+    volumes:
+      - "./config/dex/config.yaml:/etc/dex/config.yaml:ro"
+      - "./config/certs/:/etc/certs/:ro"
+    environment:
+      DEX_DOMAIN: "${DEX_DOMAIN:?}"
+      DEX_SMTP_NAME: "${DEX_SMTP_NAME:?}"
+      DEX_SMTP_ID: "${DEX_SMTP_ID:?}"
+      DEX_SMTP_HOST: "${DEX_SMTP_HOST:?}"
+      DEX_SMTP_DOMAIN: "${DEX_SMTP_DOMAIN:?}"
+      DEX_SMTP_LABEL: "${DEX_SMTP_LABEL:?}"
+      DEX_ADMIN: "${DEX_ADMIN:?}"
+      DEX_ADMIN_USER_EMAIL: "${DEX_ADMIN_USER_EMAIL:?}"
+      DEX_ADMIN_USER_PASSWORD_HASH: "${DEX_ADMIN_USER_PASSWORD_HASH:?}"
+      GRIST_DOMAIN: "${GRIST_DOMAIN:?}"
+      GRIST_OAUTH_CLIENT_SECRET: "${GRIST_OAUTH_CLIENT_SECRET:?}"
+      MINIO_DOMAIN: "${MINIO_DOMAIN:?}"
+    command: ["dex", "serve", "/etc/dex/config.yaml"]
+    healthcheck:
+      test: ["CMD", "wget", "-qO", "/dev/null", "http://localhost:5556/healthz"]
+      start_period: "5m"
+      interval: "10s"
+      timeout: "5s"
+      retries: 2
+      
+  grist:
+    image: *grist-image
+    restart: "always"
+    container_name: "apps-grist"
+    networks:
+      - "public"
+      - "private"
+    volumes:
+      - "./data/grist/persist/:/persist/:Z"
+      - "./config/certs/:/etc/certs/:ro"
+    environment:
+      DEBUG: "1"
+      APP_HOME_URL: "https://${GRIST_DOMAIN:?}"
+      GRIST_SANDBOX_FLAVOR: "${GRIST_SANDBOX_FLAVOR:-gvisor}"
+      GRIST_THROTTLE_CPU: "${GRIST_THROTTLE_CPU:-true}"
+      PYTHON_VERSION: "${PYTHON_VERSION:-3}"
+      PYTHON_VERSION_ON_CREATION: "${PYTHON_VERSION_ON_CREATION:-3}"      
+      GRIST_SESSION_SECRET: "${GRIST_SESSION_SECRET:?}"
+      GRIST_SINGLE_ORG: "${GRIST_SINGLE_ORG:-}"
+      GRIST_DEFAULT_EMAIL: "${DEX_ADMIN_USER_EMAIL:?}"
+      GRIST_SUPPORT_EMAIL: "${DEX_ADMIN_USER_EMAIL:?}"
+      GRIST_FORCE_LOGIN: "${GRIST_FORCE_LOGIN:-true}"
+      GRIST_SUPPORT_ANON: "${GRIST_SUPPORT_ANON:-false}"
+      GRIST_DEFAULT_PRODUCT: "${GRIST_DEFAULT_PRODUCT:-Free}"
+      GRIST_LIST_PUBLIC_SITES: "${GRIST_LIST_PUBLIC_SITES:-false}"
+      GRIST_MAX_UPLOAD_ATTACHMENT_MB: "${GRIST_MAX_UPLOAD_ATTACHMENT_MB:-100}"
+      GRIST_MAX_UPLOAD_IMPORT_MB: "${GRIST_MAX_UPLOAD_IMPORT_MB:-500}"
+      GRIST_WIDGET_LIST_URL: "${GRIST_WIDGET_LIST_URL:-https://github.com/gristlabs/grist-widget/releases/download/latest/manifest.json}"
+      GRIST_TELEMETRY_LEVEL: "${GRIST_TELEMETRY_LEVEL:-off}"
+      # Grist db
+      TYPEORM_TYPE: "sqlite"
+      TYPEORM_DATABASE: "/persist/home.sqlite3"      
+      # UI customization
+      APP_STATIC_INCLUDE_CUSTOM_CSS: "true"
+      GRIST_PAGE_TITLE_SUFFIX: "${GRIST_PAGE_TITLE_SUFFIX:-_blank}"
+      GRIST_HIDE_UI_ELEMENTS: "${GRIST_HIDE_UI_ELEMENTS:-helpCenter,billing,templates,multiAccounts,sendToDrive,tutorials}"
+      # OIDC Authentication
+      GRIST_OIDC_IDP_ISSUER: "https://${DEX_DOMAIN:?}/.well-known/openid-configuration"
+      GRIST_OIDC_IDP_CLIENT_ID: "grist"
+      GRIST_OIDC_IDP_CLIENT_SECRET: "${GRIST_OAUTH_CLIENT_SECRET:?}"
+      GRIST_OIDC_IDP_SCOPES: "openid email profile"
+      GRIST_OIDC_IDP_SKIP_END_SESSION_ENDPOINT: "true"
+      # Local CA for https
+      NODE_EXTRA_CA_CERTS: "/etc/certs/rootCA.pem"
+      NODE_TLS_REJECT_UNAUTHORIZED: "${GRIST_NODE_TLS_REJECT_UNAUTHORIZED:-1}"
+      # minio
+      GRIST_DOCS_MINIO_ACCESS_KEY: "grist"
+      GRIST_DOCS_MINIO_SECRET_KEY: "${MINIO_GRIST_PASSWORD:?}"
+      GRIST_DOCS_MINIO_USE_SSL: "0"
+      GRIST_DOCS_MINIO_BUCKET: "grist"
+      GRIST_DOCS_MINIO_ENDPOINT: "minio"
+      GRIST_DOCS_MINIO_PORT: "9000"
+      # Redis
+      REDIS_URL: "redis://:${REDIS_GRIST_PASSWORD:?}@redis:6379/1"
+    healthcheck:
+      test: ["CMD", "bash", "-euc", ">/dev/tcp/localhost/8484"]
+      start_period: "5m"
+      interval: "10s"
+      timeout: "5s"
+      retries: 2
+    depends_on:
+      dex:
+        condition: "service_healthy"
+      redis:
+        condition: "service_healthy"
+      minio:
+        condition: "service_healthy"
+        
+  redis:
+    image: *redis-image
+    restart: "always"
+    container_name: "apps-redis"
+    networks:
+      - "private"
+    volumes:
+      - "./config/redis/redis.conf.sh:/etc/redis/redis.conf.sh:ro"
+      - "./data/redis-grist/:/data/:Z"
+    environment:
+      REDISCLI_AUTH: "${REDIS_GRIST_PASSWORD:?}"
+      REDIS_LOGLEVEL: "warning"
+    command: ["sh", "-euc", "sh /etc/redis/redis.conf.sh | exec redis-server -"]
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli ping | grep -q PONG"]
+      start_period: "5m"
+      interval: "10s"
+      timeout: "5s"
+      retries: 2
+
+  minio:
+    image: *minio-image
+    restart: "always"
+    container_name: "apps-minio"
+    networks:
+      - "private"
+    volumes:
+      - "./data/minio/:/data/:Z"
+    environment:
+      MINIO_ROOT_USER: "minio"
+      MINIO_ROOT_PASSWORD: "${MINIO_ROOT_PASSWORD:?}"
+      MINIO_VOLUMES: "/data/"
+      MINIO_BROWSER: "on"
+      MINIO_BROWSER_REDIRECT_URL: "https://${MINIO_DOMAIN:?}/console/"
+    command: ["server", "--address", ":9000", "--console-address", ":9001"]
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      start_period: "5m"
+      interval: "10s"
+      timeout: "5s"
+      retries: 2
+
+  minio-init:
+    image: *minio-mc-image
+    restart: "on-failure"
+    container_name: "apps-minio-init"
+    networks:
+      - "private"
+    volumes:
+      - "./config/minio/init.sh:/init.sh:ro"
+      - "./config/minio/policies/:/policies/:ro"
+    environment:
+      MINIO_ROOT_PASSWORD: "${MINIO_ROOT_PASSWORD:?}"
+      MINIO_GRIST_PASSWORD: "${MINIO_GRIST_PASSWORD:?}"
+    entrypoint: "/init.sh"
+    depends_on:
+      minio:
+        condition: "service_healthy"
+        
+networks:
+
+  public:
+    name: "apps-public"
+    internal: false
+
+  private:
+    name: "apps-private"
+    internal: true
+

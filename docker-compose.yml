@@ -143,7 +143,7 @@ services:
       - "private"
     volumes:
       - "./config/redis/redis.conf.sh:/etc/redis/redis.conf.sh:ro"
-      - "./data/redis-grist/:/data/:Z"
+      - "./data/redis/:/data/:Z"
     environment:
       REDISCLI_AUTH: "${REDIS_GRIST_PASSWORD:?}"
       REDIS_LOGLEVEL: "warning"
@@ -193,7 +193,7 @@ services:
     depends_on:
       minio:
         condition: "service_healthy"
-        
+
 networks:
 
   public:

@@ -47,7 +47,7 @@ services:
       - "./config/dex/config.yaml:/etc/dex/config.yaml:ro"
       - "./config/certs/:/etc/certs/:ro"
     environment:
-      DEX_DOMAIN: "${DEX_DOMAIN:?}"
+      DEX_DOMAIN: "${DEX_SUBDOMAIN:?}.${DOMAIN:?}"
       DEX_SMTP_NAME: "${DEX_SMTP_NAME:?}"
       DEX_SMTP_ID: "${DEX_SMTP_ID:?}"
       DEX_SMTP_HOST: "${DEX_SMTP_HOST:?}"
@@ -56,9 +56,9 @@ services:
       DEX_ADMIN: "${DEX_ADMIN:?}"
       DEX_ADMIN_USER_EMAIL: "${DEX_ADMIN_USER_EMAIL:?}"
       DEX_ADMIN_USER_PASSWORD_HASH: "${DEX_ADMIN_USER_PASSWORD_HASH:?}"
-      GRIST_DOMAIN: "${GRIST_DOMAIN:?}"
+      GRIST_DOMAIN: "${GRIST_SUBDOMAIN:?}.${DOMAIN:?}"
       GRIST_OAUTH_CLIENT_SECRET: "${GRIST_OAUTH_CLIENT_SECRET:?}"
-      MINIO_DOMAIN: "${MINIO_DOMAIN:?}"
+      MINIO_DOMAIN: "${MINIO_SUBDOMAIN:?}.${DOMAIN:?}"
     command: ["dex", "serve", "/etc/dex/config.yaml"]
     healthcheck:
       test: ["CMD", "wget", "-qO", "/dev/null", "http://localhost:5556/healthz"]
@@ -79,7 +79,7 @@ services:
       - "./config/certs/:/etc/certs/:ro"
     environment:
       DEBUG: "1"
-      APP_HOME_URL: "https://${GRIST_DOMAIN:?}"
+      APP_HOME_URL: "https://${GRIST_SUBDOMAIN:?}.${DOMAIN:?}"
       GRIST_SANDBOX_FLAVOR: "${GRIST_SANDBOX_FLAVOR:-gvisor}"
       GRIST_THROTTLE_CPU: "${GRIST_THROTTLE_CPU:-true}"
       PYTHON_VERSION: "${PYTHON_VERSION:-3}"
@@ -104,7 +104,7 @@ services:
       GRIST_PAGE_TITLE_SUFFIX: "${GRIST_PAGE_TITLE_SUFFIX:-_blank}"
       GRIST_HIDE_UI_ELEMENTS: "${GRIST_HIDE_UI_ELEMENTS:-helpCenter,billing,templates,multiAccounts,sendToDrive,tutorials}"
       # OIDC Authentication
-      GRIST_OIDC_IDP_ISSUER: "https://${DEX_DOMAIN:?}/.well-known/openid-configuration"
+      GRIST_OIDC_IDP_ISSUER: "https://${DEX_SUBDOMAIN:?}.${DOMAIN:?}/.well-known/openid-configuration"
       GRIST_OIDC_IDP_CLIENT_ID: "grist"
       GRIST_OIDC_IDP_CLIENT_SECRET: "${GRIST_OAUTH_CLIENT_SECRET:?}"
       GRIST_OIDC_IDP_SCOPES: "openid email profile"
@@ -168,7 +168,7 @@ services:
       MINIO_ROOT_PASSWORD: "${MINIO_ROOT_PASSWORD:?}"
       MINIO_VOLUMES: "/data/"
       MINIO_BROWSER: "on"
-      MINIO_BROWSER_REDIRECT_URL: "https://${MINIO_DOMAIN:?}/console/"
+      MINIO_BROWSER_REDIRECT_URL: "https://${MINIO_SUBDOMAIN:?}.${DOMAIN:?}/console/"
     command: ["server", "--address", ":9000", "--console-address", ":9001"]
     healthcheck:
       test: ["CMD", "mc", "ready", "local"]
@@ -193,7 +193,7 @@ services:
     depends_on:
       minio:
         condition: "service_healthy"
-
+      
 networks:
 
   public:

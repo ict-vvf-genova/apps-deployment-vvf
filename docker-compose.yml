@@ -8,6 +8,7 @@ x-grist-image: &grist-image "docker.io/gristlabs/grist:1.1.10"
 x-redis-image: &redis-image "docker.io/redis:7-bookworm"
 x-minio-image: &minio-image "docker.io/minio/minio:RELEASE.2024-01-18T22-51-28Z"
 x-minio-mc-image: &minio-mc-image "docker.io/minio/mc:RELEASE.2024-01-18T07-03-39Z"
+x-nodered-image: &nodered-image "docker.io/nodered/node-red:latest"
 
 services:
 
@@ -193,6 +194,22 @@ services:
     depends_on:
       minio:
         condition: "service_healthy"
+      
+  nodered:
+    image: *nodered-image
+    restart: "always"
+    container_name: "apps-nodered"
+    user: "0:0"
+    environment:
+      TZ: Europe/Rome
+      NODERED_SETTINGS: "/config/settings.js"
+      NODERED_CREDENTIAL_SECRETS: "password"
+    volumes:
+      - "./config/nodered/settings.js:/data/settings.js:ro"
+      - "./data/nodered/:/data/:Z"
+    networks:
+      - "public"
+      - "private"
       
 networks:
 

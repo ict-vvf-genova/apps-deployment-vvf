@@ -27,7 +27,7 @@ dex.ge.dipvvf.it {
   reverse_proxy dex:5556
 }
 
-n8n.ge.dipvvf.it {
+nodered.ge.dipvvf.it {
   import ssl_certs
-  reverse_proxy n8n:5678
+  reverse_proxy nodered:1880
 }

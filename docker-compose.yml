@@ -22,9 +22,15 @@ services:
       - "443:443/udp" # HTTPS (QUIC).
     volumes:
       - "./config/caddy/Caddyfile:/etc/caddy/Caddyfile:ro"
-      - "./config/certs/:/etc/certs/:ro"
+      - "./config/certs/:/etc/certs/:ro"  # certificates
+      - "./web/:/web/:ro"  # webserver
       - "./data/caddy/data/:/data/:Z"
       - "./data/caddy/config/:/config/:Z"
+    environment:
+      WHOAMI_PORT: ${WHOAMI_PORT:?}
+      GRIST_PORT: ${GRIST_PORT:?}
+      DEX_PORT: ${DEX_PORT:?}
+      NODERED_PORT: ${NODERED_PORT:?}
     networks:
       - "public"
       - "private"
@@ -33,7 +39,7 @@ services:
     image: *whoami-image
     container_name: "apps-whoami"
     command:
-      - --port=8000
+      - --port=${WHOAMI_PORT:?}
     networks:
       - "private"
 
@@ -49,6 +55,7 @@ services:
       - "./config/certs/:/etc/certs/:ro"
     environment:
       DEX_DOMAIN: "${DEX_SUBDOMAIN:?}.${DOMAIN:?}"
+      DEX_PORT: ${DEX_PORT:?}
       DEX_SMTP_NAME: "${DEX_SMTP_NAME:?}"
       DEX_SMTP_ID: "${DEX_SMTP_ID:?}"
       DEX_SMTP_HOST: "${DEX_SMTP_HOST:?}"
@@ -60,9 +67,11 @@ services:
       GRIST_DOMAIN: "${GRIST_SUBDOMAIN:?}.${DOMAIN:?}"
       GRIST_OAUTH_CLIENT_SECRET: "${GRIST_OAUTH_CLIENT_SECRET:?}"
       MINIO_DOMAIN: "${MINIO_SUBDOMAIN:?}.${DOMAIN:?}"
+      DEX_LOGO_URL: "${DEX_LOGO_URL:?}"
+      DEX_FRONTEND_ISSUER: "${DEX_FRONTEND_ISSUER:?}"
     command: ["dex", "serve", "/etc/dex/config.yaml"]
     healthcheck:
-      test: ["CMD", "wget", "-qO", "/dev/null", "http://localhost:5556/healthz"]
+      test: ["CMD", "wget", "-qO", "/dev/null", "http://localhost:${DEX_PORT:?}/healthz"]
       start_period: "5m"
       interval: "10s"
       timeout: "5s"
@@ -81,6 +90,7 @@ services:
     environment:
       DEBUG: "1"
       APP_HOME_URL: "https://${GRIST_SUBDOMAIN:?}.${DOMAIN:?}"
+      PORT: ${GRIST_PORT:?}
       GRIST_SANDBOX_FLAVOR: "${GRIST_SANDBOX_FLAVOR:-gvisor}"
       GRIST_THROTTLE_CPU: "${GRIST_THROTTLE_CPU:-true}"
       PYTHON_VERSION: "${PYTHON_VERSION:-3}"
@@ -123,7 +133,7 @@ services:
       # Redis
       REDIS_URL: "redis://:${REDIS_GRIST_PASSWORD:?}@redis:6379/1"
     healthcheck:
-      test: ["CMD", "bash", "-euc", ">/dev/tcp/localhost/8484"]
+      test: ["CMD", "bash", "-euc", ">/dev/tcp/localhost/${GRIST_PORT:?}"]
       start_period: "5m"
       interval: "10s"
       timeout: "5s"
@@ -201,11 +211,11 @@ services:
     container_name: "apps-nodered"
     user: "0:0"
     environment:
-      TZ: Europe/Rome
-      NODERED_SETTINGS: "/config/settings.js"
-      NODERED_CREDENTIAL_SECRETS: "password"
+      PORT: ${NODERED_PORT:?}
+      NODERED_ENCRYPTION_KEY: ${NODERED_ENCRYPTION_KEY:?}
+      TZ: "{$NODERED_TIMEZONE}"
     volumes:
-      - "./config/nodered/settings.js:/data/settings.js:ro"
+      - "./config/nodered/settings.js:/data/settings.js:ro"  # settings
       - "./data/nodered/:/data/:Z"
     networks:
       - "public"

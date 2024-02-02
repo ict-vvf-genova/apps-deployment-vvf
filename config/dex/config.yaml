@@ -6,16 +6,16 @@ storage:
     file: /var/dex/dex.db
 
 web:
-  http: "0.0.0.0:5556"
+  http: "0.0.0.0:{{ .Env.DEX_PORT }}"
 
 logger:
   level: "debug"
   format: "text"
 
 frontend:
-  issuer: "/dex"
-  theme: "dark"
-#  logoURL: '{{ getenv "APP_HOME_URL" }}/v/unknown/ui-icons/Logo/GristLogo.svg'
+  issuer: "{{ getenv "DEX_FRONTEND_ISSUER" }}"
+  logoURL: '{{ getenv "DEX_LOGO_URL" }}'
+  theme: "light"
 
 oauth2:
   skipApprovalScreen: true

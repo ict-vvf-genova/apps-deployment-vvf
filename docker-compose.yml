@@ -1,115 +1,158 @@
 name: "apps"
-version: "3.7"
+version: "3.8"
 services:
 
   caddy:
-    image: "docker.io/caddy:latest"
-    restart: "always"
+    image: "docker.io/caddy:2.7"
     container_name: "apps-caddy"
-    ports:
-      - "80:80/tcp" # HTTP.
-      - "443:443/tcp" # HTTPS.
-      - "443:443/udp" # HTTPS (QUIC).
-    volumes:
-      - "./config/caddy/Caddyfile:/etc/caddy/Caddyfile:ro"
-      - "./config/certs/:/etc/certs/:ro"  # certificates
-      - "./web/:/web/:ro"  # webserver
-      - "./data/caddy/data/:/data/:Z"
-      - "./data/caddy/config/:/config/:Z"
-    environment:
-      WHOAMI_PORT: ${WHOAMI_PORT:?}
-      GRIST_PORT: ${GRIST_PORT:?}
-      DEX_PORT: ${DEX_PORT:?}
-      NODERED_PORT: ${NODERED_PORT:?}
+    restart: "always"
     networks:
       - "public"
       - "private"
-
-  whoami:
-    image: "docker.io/traefik/whoami"
-    container_name: "apps-whoami"
-    command:
-      - --port=${WHOAMI_PORT:?}
-    networks:
-      - "private"
+    ports:
+      - "80:80" # HTTP
+      - "443:443" # HTTPS
+    volumes:
+      - "${CONFDIR:?}/caddy/Caddyfile:/etc/caddy/Caddyfile:Z"  # config
+      - "${CERTDIR:?}/:/etc/certs/:Z"  # certificates
+      - "${DATADIR:?}/caddy/data/:/data/:Z"
+      - "${DATADIR:?}/caddy/config/:/config/:Z"
+      - "${WEBDIR:?}/:/web/:ro"  # webserver
+    environment:
+      DOMAIN: "${DOMAIN:?}"
 
   dex:
     image: "ghcr.io/ict-vvf-genova/dex-smtp:master"
-    restart: "always"
     container_name: "apps-dex"
+    restart: "always"
     networks:
       - "public"
       - "private"
     volumes:
       - "./config/dex/config.yaml:/etc/dex/config.yaml:ro"
-      - "./config/certs/:/etc/certs/:ro"
     environment:
-      DEX_DOMAIN: "${DEX_SUBDOMAIN:?}.${DOMAIN:?}"
-      DEX_PORT: ${DEX_PORT:?}
+      DEX_LOGLEVEL: "${DEX_LOGLEVEL:?}"
+      DOMAIN: "${DOMAIN:?}"
+      DEX_ADMIN_ONLY: "${DEX_ADMIN_ONLY:?}"
+      ADMIN_EMAIL: "${ADMIN_EMAIL:?}"
+      DEFAULT_PASSWORD_HASH: "${DEFAULT_PASSWORD_HASH:?}"
+      GRIST_OAUTH_CLIENT_SECRET: "${GRIST_OAUTH_CLIENT_SECRET:?}"
+      DEX_LOGO_URL: "${DEX_LOGO_URL:?}"
       DEX_SMTP_NAME: "${DEX_SMTP_NAME:?}"
       DEX_SMTP_ID: "${DEX_SMTP_ID:?}"
       DEX_SMTP_HOST: "${DEX_SMTP_HOST:?}"
       DEX_SMTP_DOMAIN: "${DEX_SMTP_DOMAIN:?}"
       DEX_SMTP_LABEL: "${DEX_SMTP_LABEL:?}"
-      DEX_ADMIN: "${DEX_ADMIN:?}"
-      DEX_ADMIN_USER_EMAIL: "${DEX_ADMIN_USER_EMAIL:?}"
-      DEX_ADMIN_USER_PASSWORD_HASH: "${DEX_ADMIN_USER_PASSWORD_HASH:?}"
-      GRIST_DOMAIN: "${GRIST_SUBDOMAIN:?}.${DOMAIN:?}"
-      GRIST_OAUTH_CLIENT_SECRET: "${GRIST_OAUTH_CLIENT_SECRET:?}"
-      DEX_LOGO_URL: "${DEX_LOGO_URL:?}"
-      DEX_FRONTEND_ISSUER: "${DEX_FRONTEND_ISSUER:?}"
     command: ["dex", "serve", "/etc/dex/config.yaml"]
     healthcheck:
-      test: ["CMD", "wget", "-qO", "/dev/null", "http://localhost:${DEX_PORT:?}/healthz"]
+      test: ["CMD", "wget", "-qO", "/dev/null", "http://localhost:5556/healthz"]
       start_period: "5m"
       interval: "10s"
       timeout: "5s"
       retries: 2
-      
-  grist:
-    image: "docker.io/gristlabs/grist:1.1.10"
+
+  redis:
+    image: "docker.io/redis:7-bookworm"
+    container_name: "apps-redis"
     restart: "always"
-    container_name: "apps-grist"
     networks:
-      - "public"
       - "private"
     volumes:
-      - "./data/grist/persist/:/persist/:Z"
-      - "./config/certs/:/etc/certs/:ro"
+      - "${CONFDIR:?}/redis/redis.conf.sh:/etc/redis/redis.conf.sh:ro"
+      - "${DATADIR:?}/redis/:/data/:Z"
     environment:
-      DEBUG: "1"
-      APP_HOME_URL: "https://${GRIST_SUBDOMAIN:?}.${DOMAIN:?}"
-      PORT: ${GRIST_PORT:?}
+      REDIS_LOGLEVEL: "${REDIS_LOGLEVEL:?}"
+      REDIS_AUTH: "${DEFAULT_PASSWORD:?}"
+    command: ["sh", "-euc", "sh /etc/redis/redis.conf.sh | exec redis-server -"]
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli", "ping | grep -q PONG"]
+      start_period: "5m"
+      interval: "10s"
+      timeout: "5s"
+      retries: 2
+
+  minio:  # FIXME log?
+    image: "docker.io/minio/minio:RELEASE.2024-01-18T22-51-28Z"
+    container_name: "apps-minio"
+    restart: "always"
+    networks:
+      - "private"
+    volumes:
+      - "${DATADIR:?}/minio/:/data/"
+    environment:
+      MINIO_ROOT_USER: "minio"
+      MINIO_ROOT_PASSWORD: "${DEFAULT_PASSWORD:?}"
+      MINIO_VOLUMES: "/data/"
+      MINIO_BROWSER: "off"
+    command: ["server", "--address", ":9000"]
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      start_period: "5m"
+      interval: "10s"
+      timeout: "5s"
+      retries: 2
+
+  minio-init:
+    image: "docker.io/minio/mc:RELEASE.2024-01-18T07-03-39Z"
+    container_name: "apps-minio-init"
+    restart: "on-failure"
+    networks:
+      - "private"
+    volumes:
+      - "${CONFDIR:?}/minio/init.sh:/init.sh:ro"
+      - "${CONFDIR:?}/minio/policies/:/policies/:ro"
+    environment:
+      MINIO_ROOT_PASSWORD: "${DEFAULT_PASSWORD:?}"
+      MINIO_GRIST_PASSWORD: "${DEFAULT_PASSWORD:?}"
+    entrypoint: "/init.sh"
+    depends_on:
+      minio:
+        condition: "service_healthy"
+
+  grist:
+    image: "docker.io/gristlabs/grist:1.1.11"
+    container_name: "apps-grist"
+    restart: "always"
+    volumes:
+      - "${CERTDIR:?}/:/etc/certs/:Z"  # certificates
+      - "${DATADIR:?}/grist/:/persist/:Z"
+    environment:
+      DEBUG: ${GRIST_DEBUG:?}
+      APP_HOME_URL: "https://grist.${DOMAIN:?}"
       GRIST_SESSION_SECRET: "${GRIST_SESSION_SECRET:?}"
       GRIST_SINGLE_ORG: "${GRIST_SINGLE_ORG:?}"
-      GRIST_DEFAULT_EMAIL: "${DEX_ADMIN_USER_EMAIL:?}"
-      GRIST_SUPPORT_EMAIL: "${DEX_ADMIN_USER_EMAIL:?}"
+      GRIST_DEFAULT_EMAIL: "${ADMIN_EMAIL:?}"
+      GRIST_SUPPORT_EMAIL: "${SUPPORT_EMAIL:?}"
+      # Predefined  # FIXME custom widgets not listed, but callable, no proxy?
+      GRIST_SANDBOX_FLAVOR: "gvisor"
+      GRIST_PAGE_TITLE_SUFFIX: "_blank"
+      GRIST_TELEMETRY_LEVEL: "off"
+      GRIST_MAX_UPLOAD_ATTACHMENT_MB: "10"
+      GRIST_MAX_UPLOAD_IMPORT_MB: "50"
+      GRIST_THROTTLE_CPU: "true"
       # OIDC Authentication
-      GRIST_OIDC_IDP_ISSUER: "https://${DEX_SUBDOMAIN:?}.${DOMAIN:?}/.well-known/openid-configuration"
+      GRIST_OIDC_IDP_ISSUER: "https://dex.${DOMAIN:?}/.well-known/openid-configuration"
       GRIST_OIDC_IDP_CLIENT_ID: "grist"
       GRIST_OIDC_IDP_CLIENT_SECRET: "${GRIST_OAUTH_CLIENT_SECRET:?}"
       GRIST_OIDC_IDP_SCOPES: "openid email profile"
       GRIST_OIDC_IDP_SKIP_END_SESSION_ENDPOINT: "true"
-      GRIST_FORCE_LOGIN: "true"  # no unauthenticated users
-      GRIST_SUPPORT_ANON: "false"  # no anonymous users
-      # Local CA for internal https
-      NODE_EXTRA_CA_CERTS: "/etc/certs/rootCA.pem"
-      NODE_TLS_REJECT_UNAUTHORIZED: "${GRIST_NODE_TLS_REJECT_UNAUTHORIZED:-1}"
+      NODE_EXTRA_CA_CERTS: "/etc/certs/rootCA.pem"  # trust dex
+      #GRIST_FORCE_LOGIN: "true"  # no unauthenticated users
+      #GRIST_SUPPORT_ANON: "false"  # no anonymous users
       # Redis
-      REDIS_URL: "redis://:${REDIS_GRIST_PASSWORD:?}@redis:6379/1"
-      # Predefined
-      GRIST_SANDBOX_FLAVOR: "gvisor"
-      GRIST_ORG_IN_PATH: "true"
-      GRIST_MAX_UPLOAD_ATTACHMENT_MB: "10"
-      GRIST_MAX_UPLOAD_IMPORT_MB: "50"
-      GRIST_THROTTLE_CPU: "true"
-      # UI customization
-      GRIST_PAGE_TITLE_SUFFIX: "_blank"
-      GRIST_HIDE_UI_ELEMENTS: "helpCenter,billing,templates,multiAccounts,sendToDrive,tutorials"
-      GRIST_WIDGET_LIST_URL: "https://github.com/gristlabs/grist-widget/releases/download/latest/manifest.json"
-      GRIST_TELEMETRY_LEVEL: "off"
+      REDIS_URL: "redis://:${DEFAULT_PASSWORD:?}@redis:6379/1"
+      # Minio
+      GRIST_DOCS_MINIO_ENDPOINT: "minio"  # FIXME MINIO compare not working
+      GRIST_DOCS_MINIO_PORT: "9000"
+      GRIST_DOCS_MINIO_USE_SSL: "0"
+      GRIST_DOCS_MINIO_BUCKET: "grist"
+      GRIST_DOCS_MINIO_ACCESS_KEY: "grist"
+      GRIST_DOCS_MINIO_SECRET_KEY: "${DEFAULT_PASSWORD:?}"
+    networks:
+      - "public"
+      - "private"
     healthcheck:
-      test: ["CMD", "bash", "-euc", ">/dev/tcp/localhost/${GRIST_PORT:?}"]
+      test: ["CMD", "bash", "-euc", ">/dev/tcp/localhost/8484"]
       start_period: "5m"
       interval: "10s"
       timeout: "5s"
@@ -119,43 +162,31 @@ services:
         condition: "service_healthy"
       redis:
         condition: "service_healthy"
-
-  redis:
-    image: "docker.io/redis:7-bookworm"
-    restart: "always"
-    container_name: "apps-redis"
-    networks:
-      - "private"
-    volumes:
-      - "./config/redis/redis.conf.sh:/etc/redis/redis.conf.sh:ro"
-      - "./data/redis/:/data/:Z"
-    environment:
-      REDISCLI_AUTH: "${REDIS_GRIST_PASSWORD:?}"
-      REDIS_LOGLEVEL: "warning"
-    command: ["sh", "-euc", "sh /etc/redis/redis.conf.sh | exec redis-server -"]
-    healthcheck:
-      test: ["CMD-SHELL", "redis-cli ping | grep -q PONG"]
-      start_period: "5m"
-      interval: "10s"
-      timeout: "5s"
-      retries: 2
+      minio:
+        condition: "service_healthy"
+      minio-init:
+        condition: "service_completed_successfully"
 
   nodered:
     image: "docker.io/nodered/node-red:latest"
-    restart: "always"
     container_name: "apps-nodered"
-    user: "0:0"
-    environment:
-      PORT: ${NODERED_PORT:?}
-      NODERED_ENCRYPTION_KEY: ${NODERED_ENCRYPTION_KEY:?}
-      TZ: "{$NODERED_TIMEZONE}"
+    restart: "always"
     volumes:
+      - "${CERTDIR:?}/:/etc/certs/:Z"  # certificates
       - "./config/nodered/settings.js:/data/settings.js:ro"  # settings
       - "./data/nodered/:/data/:Z"
+    user: "0:0"
+    environment:
+      NODERED_LOGLEVEL: "${NODERED_LOGLEVEL:?}"
+      NODERED_SESSION_SECRET: "${NODERED_SESSION_SECRET:?}"
+      NODERED_ADMIN: "${NODERED_ADMIN:?}"
+      NODERED_PASSWORD_HASH: "${NODERED_PASSWORD_HASH:?}"
+      TZ: "Europe/Rome"
+      NODE_EXTRA_CA_CERTS: "/etc/certs/rootCA.pem"  # trust grist
     networks:
       - "public"
       - "private"
-      
+
 networks:
 
   public:
@@ -165,4 +196,3 @@ networks:
   private:
     name: "apps-private"
     internal: true
-

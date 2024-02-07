@@ -17,18 +17,17 @@ apps.ge.dipvvf.it {
   file_server browse
 }
 
-grist.ge.dipvvf.it {
+dex.{$DOMAIN} {
   import ssl_certs
-  reverse_proxy /whoami whoami:{$WHOAMI_PORT}
-  reverse_proxy grist:{$GRIST_PORT}
+  reverse_proxy http://dex:5556
 }
 
-dex.ge.dipvvf.it {
+grist.{$DOMAIN} {
   import ssl_certs
-  reverse_proxy dex:{$DEX_PORT}
+  reverse_proxy http://grist:8484
 }
 
-nodered.ge.dipvvf.it {
+nodered.{$DOMAIN} {
   import ssl_certs
-  reverse_proxy nodered:{$NODERED_PORT}
+  reverse_proxy http://nodered:1880
 }

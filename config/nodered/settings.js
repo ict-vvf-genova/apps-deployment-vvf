@@ -1,28 +1,19 @@
-/**
- * This is the default settings file provided by Node-RED.
- *
- * https://nodered.org/docs/user-guide/runtime/configuration
-  **/
-
 module.exports = {
     flowFile: 'flows.json',
-    credentialSecret: "${NODERED_ENCRYPTION}",
+    credentialSecret: process.env.NODERED_SESSION_SECRET,
     flowFilePretty: true,
     userDir: '/data/',
     
     adminAuth: {
         type: "credentials",
         users: [{
-            username: "admin",
-            password: "$2a$08$zZWtXTja0fB1pzD4sHCMyOCMYz2Z6dNbM6tl8sJogENOMcxWV9DN.",
+            username: process.env.NODERED_ADMIN,
+            password: process.env.NODERED_PASSWORD_HASH,
             permissions: "*"
         }],
-        default: {
-            permissions: "read"
-        }
     },
 
-    uiPort: process.env.PORT || 1880,
+    uiPort: 1880,
 
     diagnostics: {
         enabled: true,
@@ -34,8 +25,7 @@ module.exports = {
     },
     logging: {
         console: {
-            /** fatal, error, warn, info, debug, trace, off  */
-            level: "info",
+            level: process.env.NODERED_LOGLEVEL,
             metrics: false,
             audit: false,
         }

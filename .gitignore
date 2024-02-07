@@ -1,5 +1,7 @@
 .env
-/data/
 
-/config/certs/*
-!/config/certs/.gitkeep
+/data/
+!/data/.gitkeep
+
+/certs/*
+!/certs/.gitkeep

@@ -3,8 +3,7 @@
 # Create local authority, if absent, and certificates
 # See: https://github.com/FiloSottile/mkcert
 
-DOMAIN="ge.dipvvf.it"
-CERTDIR="./config/certs"
+source .env
 
 # Check mkcert
 if ! command -v mkcert &> /dev/null
@@ -15,14 +14,15 @@ fi
 
 # Prepare certificate directory
 mkdir -p $CERTDIR
-cd $CERTDIR
 
 # Create certificates
-mkcert -key-file key.pem -cert-file cert.pem "*.$DOMAIN"
-cp "$(mkcert -CAROOT)/rootCA.pem" .
-echo "Done!"
+mkcert -key-file $CERTDIR/key.pem -cert-file $CERTDIR/cert.pem "*.$DOMAIN"
+cp "$(mkcert -CAROOT)/rootCA.pem" $CERTDIR
+echo
 echo "Use key.pem and cert.pem files as webserver tls certificates."
 echo "Use rootCA.pem as certificate for browsers to trust this local CA."
 
-# Warning: the rootCA-key.pem file that mkcert automatically generates gives complete # power to intercept secure requests from your machine. Do not share it.
+# Warning: the rootCA-key.pem file that mkcert automatically generates gives complete
+# power to intercept secure requests from your machine. Do not share it.
+
 

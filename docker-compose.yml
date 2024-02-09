@@ -123,6 +123,7 @@ services:
       GRIST_SINGLE_ORG: "${GRIST_SINGLE_ORG:?}"
       GRIST_DEFAULT_EMAIL: "${ADMIN_EMAIL:?}"
       GRIST_SUPPORT_EMAIL: "${SUPPORT_EMAIL:?}"
+      #GRIST_WIDGET_LIST_URL: "${GRIST_WIDGET_LIST_URL:?}"
       # Predefined  # FIXME custom widgets not listed, but callable, no proxy?
       GRIST_SANDBOX_FLAVOR: "gvisor"
       GRIST_PAGE_TITLE_SUFFIX: "_blank"
@@ -142,12 +143,20 @@ services:
       # Redis
       REDIS_URL: "redis://:${DEFAULT_PASSWORD:?}@redis:6379/1"
       # Minio
-      GRIST_DOCS_MINIO_ENDPOINT: "minio"  # FIXME MINIO compare not working
-      GRIST_DOCS_MINIO_PORT: "9000"
-      GRIST_DOCS_MINIO_USE_SSL: "0"
-      GRIST_DOCS_MINIO_BUCKET: "grist"
-      GRIST_DOCS_MINIO_ACCESS_KEY: "grist"
-      GRIST_DOCS_MINIO_SECRET_KEY: "${DEFAULT_PASSWORD:?}"
+      GRIST_DOCS_MINIO_ENDPOINT: "${GRIST_DOCS_MINIO_ENDPOINT:?}" 
+      GRIST_DOCS_MINIO_BUCKET: "${GRIST_DOCS_MINIO_BUCKET:?}" 
+      GRIST_DOCS_MINIO_ACCESS_KEY: "${GRIST_DOCS_MINIO_ACCESS_KEY:?}" 
+      GRIST_DOCS_MINIO_SECRET_KEY: "${GRIST_DOCS_MINIO_SECRET_KEY:?}"
+      GRIST_DOCS_MINIO_PORT: "${GRIST_DOCS_MINIO_PORT:?}"
+      GRIST_DOCS_MINIO_USE_SSL: "${GRIST_DOCS_MINIO_USE_SSL:?}"
+      # Proxy
+      GRIST_HTTPS_PROXY: "${HTTP_PROXY}"
+      http_proxy:  "${HTTP_PROXY}"
+      HTTP_PROXY: "${HTTP_PROXY}"
+      https_proxy:  "${HTTP_PROXY}"
+      HTTPS_PROXY: "${HTTP_PROXY}"
+      no_proxy:  "${NO_PROXY}"
+      NO_PROXY: "${NO_PROXY}"
     networks:
       - "public"
       - "private"
@@ -162,10 +171,6 @@ services:
         condition: "service_healthy"
       redis:
         condition: "service_healthy"
-      minio:
-        condition: "service_healthy"
-      minio-init:
-        condition: "service_completed_successfully"
 
   nodered:
     image: "docker.io/nodered/node-red:latest"
@@ -183,6 +188,13 @@ services:
       NODERED_PASSWORD_HASH: "${NODERED_PASSWORD_HASH:?}"
       TZ: "Europe/Rome"
       NODE_EXTRA_CA_CERTS: "/etc/certs/rootCA.pem"  # trust grist
+      # Proxy
+      http_proxy:  "${HTTP_PROXY}"
+      HTTP_PROXY: "${HTTP_PROXY}"
+      https_proxy:  "${HTTP_PROXY}"
+      HTTPS_PROXY: "${HTTP_PROXY}"
+      no_proxy:  "${NO_PROXY}"
+      NO_PROXY: "${NO_PROXY}"
     networks:
       - "public"
       - "private"

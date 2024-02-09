@@ -7,8 +7,8 @@ module.exports = {
     adminAuth: {
         type: "credentials",
         users: [{
-            username: process.env.NODERED_ADMIN,
-            password: process.env.NODERED_PASSWORD_HASH,
+            username: process.env.ADMIN_EMAIL,
+            password: process.env.DEFAULT_PASSWORD_HASH.replace("$2y$", "$2b$"),
             permissions: "*"
         }],
     },

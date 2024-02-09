@@ -139,8 +139,8 @@ services:
     environment:
       NODERED_LOGLEVEL: "${NODERED_LOGLEVEL:?}"
       NODERED_SESSION_SECRET: "${NODERED_SESSION_SECRET:?}"
-      NODERED_ADMIN: "${NODERED_ADMIN:?}"
-      NODERED_PASSWORD_HASH: "${NODERED_PASSWORD_HASH:?}"
+      ADMIN_EMAIL: "${ADMIN_EMAIL:?}"
+      DEFAULT_PASSWORD_HASH: "${DEFAULT_PASSWORD_HASH:?}"
       TZ: "Europe/Rome"
       NODE_EXTRA_CA_CERTS: "/etc/certs/rootCA.pem"  # trust grist
       # Proxy
@@ -153,6 +153,9 @@ services:
     networks:
       - "public"
       - "private"
+    depends_on:
+      grist:
+        condition: "service_healthy"
 
 networks:
 

@@ -71,44 +71,6 @@ services:
       timeout: "5s"
       retries: 2
 
-  minio:  # FIXME log?
-    image: "docker.io/minio/minio:RELEASE.2024-01-18T22-51-28Z"
-    container_name: "apps-minio"
-    restart: "always"
-    networks:
-      - "private"
-    volumes:
-      - "${DATADIR:?}/minio/:/data/"
-    environment:
-      MINIO_ROOT_USER: "minio"
-      MINIO_ROOT_PASSWORD: "${DEFAULT_PASSWORD:?}"
-      MINIO_VOLUMES: "/data/"
-      MINIO_BROWSER: "off"
-    command: ["server", "--address", ":9000"]
-    healthcheck:
-      test: ["CMD", "mc", "ready", "local"]
-      start_period: "5m"
-      interval: "10s"
-      timeout: "5s"
-      retries: 2
-
-  minio-init:
-    image: "docker.io/minio/mc:RELEASE.2024-01-18T07-03-39Z"
-    container_name: "apps-minio-init"
-    restart: "on-failure"
-    networks:
-      - "private"
-    volumes:
-      - "${CONFDIR:?}/minio/init.sh:/init.sh:ro"
-      - "${CONFDIR:?}/minio/policies/:/policies/:ro"
-    environment:
-      MINIO_ROOT_PASSWORD: "${DEFAULT_PASSWORD:?}"
-      MINIO_GRIST_PASSWORD: "${DEFAULT_PASSWORD:?}"
-    entrypoint: "/init.sh"
-    depends_on:
-      minio:
-        condition: "service_healthy"
-
   grist:
     image: "docker.io/gristlabs/grist:1.1.11"
     container_name: "apps-grist"
@@ -142,13 +104,6 @@ services:
       #GRIST_SUPPORT_ANON: "false"  # no anonymous users
       # Redis
       REDIS_URL: "redis://:${DEFAULT_PASSWORD:?}@redis:6379/1"
-      # Minio
-      GRIST_DOCS_MINIO_ENDPOINT: "${GRIST_DOCS_MINIO_ENDPOINT:?}" 
-      GRIST_DOCS_MINIO_BUCKET: "${GRIST_DOCS_MINIO_BUCKET:?}" 
-      GRIST_DOCS_MINIO_ACCESS_KEY: "${GRIST_DOCS_MINIO_ACCESS_KEY:?}" 
-      GRIST_DOCS_MINIO_SECRET_KEY: "${GRIST_DOCS_MINIO_SECRET_KEY:?}"
-      GRIST_DOCS_MINIO_PORT: "${GRIST_DOCS_MINIO_PORT:?}"
-      GRIST_DOCS_MINIO_USE_SSL: "${GRIST_DOCS_MINIO_USE_SSL:?}"
       # Proxy
       GRIST_HTTPS_PROXY: "${HTTP_PROXY}"
       http_proxy:  "${HTTP_PROXY}"

@@ -1,17 +1,26 @@
 {
-    # Global options block. Entirely optional, https is on by default
-    # Optional email key for lets encrypt
-    # email emanuele.gissi@gmail.com
-    # Optional staging lets encrypt for testing. Comment out for production.
-    # acme_ca https://acme-staging-v02.api.letsencrypt.org/directory
+  # Global options block. Entirely optional, https is on by default
+  # Optional email key for lets encrypt
+  # email emanuele.gissi@gmail.com
+  # Optional staging lets encrypt for testing. Comment out for production.
+  # acme_ca https://acme-staging-v02.api.letsencrypt.org/directory
+  # Debug
+  # debug
+  # Log
+  log default {
+    format console
+    level {$CADDY_LOGLEVEL}
+  }
 }
+
+
 
 # run mkcert.sh before starting with local hosting
 (ssl_certs) {
   tls /etc/certs/cert.pem /etc/certs/key.pem
 }
 
-apps.ge.dipvvf.it {
+apps.{$DOMAIN} {
   import ssl_certs
   root * /web/
   file_server browse

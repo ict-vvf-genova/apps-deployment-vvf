@@ -6,6 +6,7 @@ services:
     image: "docker.io/caddy:2.7"
     container_name: "apps-caddy"
     restart: "always"
+    user: "${UID:?}:${GID:?}"
     networks:
       - "public"
       - "private"
@@ -20,6 +21,7 @@ services:
       - "${WEBDIR:?}/:/web/:ro"  # webserver
     environment:
       DOMAIN: "${DOMAIN:?}"
+      CADDY_LOGLEVEL: "${CADDY_LOGLEVEL:?}"
 
   dex:
     image: "ghcr.io/ict-vvf-genova/dex-smtp:master"
@@ -37,7 +39,6 @@ services:
       ADMIN_EMAIL: "${ADMIN_EMAIL:?}"
       DEFAULT_PASSWORD_HASH: "${DEFAULT_PASSWORD_HASH:?}"
       GRIST_OAUTH_CLIENT_SECRET: "${GRIST_OAUTH_CLIENT_SECRET:?}"
-      DEX_LOGO_URL: "${DEX_LOGO_URL:?}"
       DEX_SMTP_NAME: "${DEX_SMTP_NAME:?}"
       DEX_SMTP_ID: "${DEX_SMTP_ID:?}"
       DEX_SMTP_HOST: "${DEX_SMTP_HOST:?}"
@@ -55,6 +56,7 @@ services:
     image: "docker.io/redis:7-bookworm"
     container_name: "apps-redis"
     restart: "always"
+    user: "${UID:?}:${GID:?}"
     networks:
       - "private"
     volumes:
@@ -72,24 +74,29 @@ services:
       retries: 2
 
   grist:
-    image: "docker.io/gristlabs/grist:1.1.11"
+    image: "docker.io/gristlabs/grist:1.1.12"
     container_name: "apps-grist"
     restart: "always"
+    user: "${UID:?}:${GID:?}"
     volumes:
-      - "${CERTDIR:?}/:/etc/certs/:Z"  # certificates
-      - "${DATADIR:?}/grist/:/persist/:Z"
+      - "${CERTDIR:?}/:/etc/certs/:Z"  # certificate dir
+      - "${DATADIR:?}/grist/persist/:/persist/:Z"  # persist dir
+      - "${DATADIR:?}/grist/user/:/user/:Z"  # user dir, eg. my-widgets
     environment:
-      DEBUG: ${GRIST_DEBUG:?}
+      DEBUG: ${GRIST_DEBUG}
       APP_HOME_URL: "https://grist.${DOMAIN:?}"
       GRIST_SESSION_SECRET: "${GRIST_SESSION_SECRET:?}"
       GRIST_SINGLE_ORG: "${GRIST_SINGLE_ORG:?}"
       GRIST_DEFAULT_EMAIL: "${ADMIN_EMAIL:?}"
       GRIST_SUPPORT_EMAIL: "${SUPPORT_EMAIL:?}"
-      #GRIST_WIDGET_LIST_URL: "${GRIST_WIDGET_LIST_URL:?}"
-      # Predefined  # FIXME custom widgets not listed, but callable, no proxy?
+      GRIST_WIDGET_LIST_URL: "${GRIST_WIDGET_LIST_URL}"
+      GRIST_USER_ROOT: "/user/"  # local plugins path
+      GRIST_TRUST_PLUGINS: 1  # serve local plugins along with the Grist app
+      GRIST_BOOT_KEY: "${GRIST_BOOT_KEY:?}"
+      # Predefined
       GRIST_SANDBOX_FLAVOR: "gvisor"
       GRIST_PAGE_TITLE_SUFFIX: "_blank"
-      GRIST_TELEMETRY_LEVEL: "off"
+      GRIST_TELEMETRY_LEVEL: "off"  # not working behind proxy
       GRIST_MAX_UPLOAD_ATTACHMENT_MB: "10"
       GRIST_MAX_UPLOAD_IMPORT_MB: "50"
       GRIST_THROTTLE_CPU: "true"
@@ -100,18 +107,18 @@ services:
       GRIST_OIDC_IDP_SCOPES: "openid email profile"
       GRIST_OIDC_IDP_SKIP_END_SESSION_ENDPOINT: "true"
       NODE_EXTRA_CA_CERTS: "/etc/certs/rootCA.pem"  # trust dex
-      #GRIST_FORCE_LOGIN: "true"  # no unauthenticated users
-      #GRIST_SUPPORT_ANON: "false"  # no anonymous users
+      GRIST_FORCE_LOGIN: "true"  # no unauthenticated users
+      GRIST_SUPPORT_ANON: "false"  # no anonymous users
       # Redis
       REDIS_URL: "redis://:${DEFAULT_PASSWORD:?}@redis:6379/1"
       # Proxy
-      GRIST_HTTPS_PROXY: "${HTTP_PROXY}"
-      http_proxy:  "${HTTP_PROXY}"
-      HTTP_PROXY: "${HTTP_PROXY}"
-      https_proxy:  "${HTTP_PROXY}"
-      HTTPS_PROXY: "${HTTP_PROXY}"
-      no_proxy:  "${NO_PROXY}"
-      NO_PROXY: "${NO_PROXY}"
+      # GRIST_HTTPS_PROXY: "${HTTP_PROXY}"
+      # http_proxy:  "${HTTP_PROXY}"
+      # HTTP_PROXY: "${HTTP_PROXY}"
+      # https_proxy:  "${HTTP_PROXY}"
+      # HTTPS_PROXY: "${HTTP_PROXY}"
+      # no_proxy:  "${NO_PROXY}"
+       # NO_PROXY: "${NO_PROXY}"
     networks:
       - "public"
       - "private"
@@ -128,14 +135,14 @@ services:
         condition: "service_healthy"
 
   nodered:
-    image: "docker.io/nodered/node-red:latest"
+    image: "docker.io/nodered/node-red:3.1.8"
     container_name: "apps-nodered"
     restart: "always"
+    user: "${UID:?}:${GID:?}"
     volumes:
       - "${CERTDIR:?}/:/etc/certs/:Z"  # certificates
       - "./config/nodered/settings.js:/data/settings.js:ro"  # settings
       - "./data/nodered/:/data/:Z"
-    user: "0:0"
     environment:
       NODERED_LOGLEVEL: "${NODERED_LOGLEVEL:?}"
       NODERED_SESSION_SECRET: "${NODERED_SESSION_SECRET:?}"
@@ -143,6 +150,10 @@ services:
       DEFAULT_PASSWORD_HASH: "${DEFAULT_PASSWORD_HASH:?}"
       TZ: "Europe/Rome"
       NODE_EXTRA_CA_CERTS: "/etc/certs/rootCA.pem"  # trust grist
+      # Grist doc references
+      VF_CODICI_SEDE: "${VF_CODICI_SEDE:?}"
+      GRIST_DOC_ID: "${GRIST_DOC_ID:?}"
+      GRIST_API_KEY: "${GRIST_API_KEY:?}"
       # Proxy
       http_proxy:  "${HTTP_PROXY}"
       HTTP_PROXY: "${HTTP_PROXY}"

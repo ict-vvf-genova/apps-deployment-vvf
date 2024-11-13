@@ -74,7 +74,7 @@ services:
       retries: 2
 
   grist:
-    image: "docker.io/gristlabs/grist:1.1.12"
+    image: "docker.io/gristlabs/grist:1.2.1"
     container_name: "apps-grist"
     restart: "always"
     user: "${UID:?}:${GID:?}"
@@ -85,14 +85,14 @@ services:
     environment:
       DEBUG: ${GRIST_DEBUG}
       APP_HOME_URL: "https://grist.${DOMAIN:?}"
+      # APP_DOC_INTERNAL_URL: "http://localhost:8484" # as previous from within
       GRIST_SESSION_SECRET: "${GRIST_SESSION_SECRET:?}"
+      GRIST_BOOT_KEY: "${GRIST_BOOT_KEY:?}"
       GRIST_SINGLE_ORG: "${GRIST_SINGLE_ORG:?}"
-      GRIST_DEFAULT_EMAIL: "${ADMIN_EMAIL:?}"
-      GRIST_SUPPORT_EMAIL: "${SUPPORT_EMAIL:?}"
+      # Widgets
       GRIST_WIDGET_LIST_URL: "${GRIST_WIDGET_LIST_URL}"
       GRIST_USER_ROOT: "/user/"  # local plugins path
       GRIST_TRUST_PLUGINS: 1  # serve local plugins along with the Grist app
-      GRIST_BOOT_KEY: "${GRIST_BOOT_KEY:?}"
       # Predefined
       GRIST_SANDBOX_FLAVOR: "gvisor"
       GRIST_PAGE_TITLE_SUFFIX: "_blank"
@@ -118,7 +118,11 @@ services:
       # https_proxy:  "${HTTP_PROXY}"
       # HTTPS_PROXY: "${HTTP_PROXY}"
       # no_proxy:  "${NO_PROXY}"
-       # NO_PROXY: "${NO_PROXY}"
+      # NO_PROXY: "${NO_PROXY}"
+      # Customization
+      GRIST_DEFAULT_EMAIL: "${ADMIN_EMAIL:?}"
+      GRIST_SUPPORT_EMAIL: "${SUPPORT_EMAIL:?}"
+      # GRIST_TERMS_OF_SERVICE_URL: ""
     networks:
       - "public"
       - "private"

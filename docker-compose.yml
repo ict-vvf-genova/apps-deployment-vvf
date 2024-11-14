@@ -90,7 +90,9 @@ services:
       GRIST_BOOT_KEY: "${GRIST_BOOT_KEY:?}"
       GRIST_SINGLE_ORG: "${GRIST_SINGLE_ORG:?}"
       # Widgets
-      GRIST_WIDGET_LIST_URL: "${GRIST_WIDGET_LIST_URL}"
+      GRIST_WIDGET_LIST_URL: ""
+      # GRIST_WIDGET_LIST_URL: "https://gristlabs.github.io/grist-widget/manifest.json"
+      GRIST_EXPERIMENTAL_PLUGINS: 1
       GRIST_USER_ROOT: "/user/"  # local plugins path
       GRIST_TRUST_PLUGINS: 1  # serve local plugins along with the Grist app
       # Predefined
